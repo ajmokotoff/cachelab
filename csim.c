@@ -35,7 +35,7 @@ struct parameters {
 	int hitCount;
 	int missCount;
 	int evictionCount;
-	int verbosity;
+	int verbose;
 	int option;
 	memoryAddress lastCalled;
 } cacheParams;
@@ -81,7 +81,8 @@ void buildCache() {
 void runOperation(char op, memoryAddress address, int size) {
 	cacheParams.operationNum++;
 
-	memoryAddress setIndex = (address << (64 - cacheParams.setIndexBit - cacheParams.blockBit)) >> (64 - cacheParams.setIndexBit);
+	memoryAddress setIndex = (address << (64 - cacheParams.setIndexBit - cacheParams.blockBit));
+	setIndex = setIndex >> (64 - cacheParams.setIndexBit);
 	memoryAddress currentTag = address >> (cacheParams.setIndexBit + cacheParams.blockBit);
 
 	set currentSet = theCache.sets[setIndex];
@@ -90,12 +91,14 @@ void runOperation(char op, memoryAddress address, int size) {
 		if(currentSet.lines[i].validBit == 1 && currentSet.lines[i].tagBit == currentTag) {
 			cacheParams.hitCount++;
 			currentSet.lines[i].priorCall = cacheParams.operationNum;
-			if (op == 'M' && cacheParams.lastCalled == address) {
-				printf(" hit\n");
-			} else if (op == 'M') {
-				printf("%c %llx,%d hit", op, address, size);
-			} else {
-				printf("%c %llx,%d hit\n", op, address, size);
+			if(cacheParams.verbose == 1) {
+				if (op == 'M' && cacheParams.lastCalled == address) {
+					printf(" hit\n");
+				} else if (op == 'M') {
+					printf("%c %llx,%d hit", op, address, size);
+				} else {
+					printf("%c %llx,%d hit\n", op, address, size);
+				}
 			}
 			cacheParams.lastCalled = address;
 			return;
@@ -110,10 +113,12 @@ void runOperation(char op, memoryAddress address, int size) {
 			currentSet.lines[i].tagBit = currentTag;
 			currentSet.lines[i].priorCall = cacheParams.operationNum;
 			
-			if (op == 'M') {
-				printf("%c %llx,%d miss", op, address, size);
-			} else {
-				printf("%c %llx,%d miss\n", op, address, size);
+			if(cacheParams.verbose == 1) {
+				if (op == 'M') {
+					printf("%c %llx,%d miss", op, address, size);
+				} else {
+					printf("%c %llx,%d miss\n", op, address, size);
+				}
 			}
 			cacheParams.lastCalled = address;
 			return;
@@ -134,7 +139,9 @@ void runOperation(char op, memoryAddress address, int size) {
 
 	currentSet.lines[minIndex].tagBit = currentTag;
 	currentSet.lines[minIndex].priorCall = cacheParams.operationNum;
-	printf("%c %llx,%d miss eviction\n", op, address, size);
+	if(cacheParams.verbose == 1) {
+		printf("%c %llx,%d miss eviction\n", op, address, size);
+	}
 }
 
 int main(int argc, char* argv[]) {
@@ -146,24 +153,21 @@ int main(int argc, char* argv[]) {
 	cacheParams.evictionCount = 0;
 	cacheParams.option = 0;
 	cacheParams.operationNum = 0;
+	cacheParams.verbose = 0;
 
 	while ((option = getopt(argc, argv, "hvs:E:b:t:")) != -1) {
 		switch (option) {
 			case 'h' : printHelp();
 				break;
-			case 'v' : cacheParams.verbosity = 1;
+			case 'v' : cacheParams.verbose = 1;
 				break;
 			case 's' : cacheParams.setIndexBit = atoi(optarg);
-				printf("setIndexBit: %d\n", cacheParams.setIndexBit);
 				break;
 			case 'E' : cacheParams.lines = atoi(optarg);
-				printf("lines: %d\n", cacheParams.lines);
 				break;
 			case 'b' : cacheParams.blockBit = atoi(optarg);
-				printf("blockBit: %d\n", cacheParams.blockBit);
 				break;
 			case 't' : fileName = optarg;
-				printf("File Name: %s\n", fileName);
 				break;
 			default: printHelp();
 				exit(EXIT_FAILURE);
@@ -174,7 +178,6 @@ int main(int argc, char* argv[]) {
 	// Build Cache here based on parameters
 	buildCache();
 
-	printf("Size: %lu\n", sizeof(theCache));
 
 	
 	// Start traversing trace file

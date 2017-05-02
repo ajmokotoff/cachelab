@@ -22,6 +22,66 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
 char transpose_submit_desc[] = "Transpose submission";
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
+	int numRow, numCol, rowSector, colSector;
+
+	int diagonal = 0;
+	int temporal = 0;
+
+	if(N == 64 && M == 64) {
+		for(colSector=0; colSector < M; colSector += 4) {
+			for(rowSector = 0; rowSector < N; rowSector += 4) {
+				for(numRow = rowSector; numRow < rowSector + 4; numRow++) {
+					for(numCol = colSector; numCol < colSector + 4; numCol++) {
+						if(numRow != numCol) {
+							B[numCol][numRow] = A[numRow][numCol];
+						} else {
+							diagonal = numRow;
+							temporal = A[numRow][numCol];
+						}
+					}
+					if(colSector == rowSector) {
+						B[diagonal][diagonal] = temporal;
+					}
+				}
+			}
+		}
+	} else if (N == 32 && M == 32) {
+		for(colSector = 0; colSector < N; colSector += 8){
+			for(rowSector = 0; rowSector < N; rowSector += 8){
+				for(numRow = rowSector; numRow < rowSector + 8; numRow++){
+					for(numCol = colSector; numCol < colSector + 8; numCol++){
+						if(numRow != numCol){
+							B[numCol][numRow] = A[numRow][numCol];
+						} else{
+							diagonal = numRow;
+							temporal = A[numRow][numCol];
+						}
+					}
+					if(colSector == rowSector){
+						B[diagonal][diagonal] = temporal;
+					}
+				}
+			}
+		}
+	} else {
+		for(colSector = 0; colSector < N; colSector += 16) {
+			for(rowSector = 0; rowSector < N; rowSector += 16) {
+				for(numRow = rowSector; (numRow < rowSector + 16) && (numRow < N); numRow++) {
+					for(numCol = colSector; (numCol < colSector + 16) && (numCol < M); numCol++) {
+						if(numRow != numCol) {
+							B[numCol][numRow] = A[numRow][numCol];
+						} else {
+							diagonal = numRow;
+							temporal = A[numRow][numCol];
+						}
+					}
+					if(colSector == rowSector) {
+						B[diagonal][diagonal] = temporal;
+					}
+				}
+			}
+		}
+	}
 }
 
 /* 
